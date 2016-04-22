@@ -93,7 +93,6 @@ def parse(program):
     global token, token_stream
     token_stream = tokenize(program)
     token = next(token_stream)
-    import pdb; pdb.set_trace()
     return expression() 
 
 print parse('12 - 3*(2 + 1) -4 + 2*5')
