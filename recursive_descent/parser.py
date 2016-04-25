@@ -95,4 +95,3 @@ def parse(program):
     token = next(token_stream)
     return expression() 
 
-print parse('12 - 3*(2 + 1) -4 + 2*5')
