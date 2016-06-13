@@ -36,5 +36,16 @@ class TestVarArithOperation(unittest.TestCase):
     def testRSub(self):
         self.assertEqual(-20 - self.var1, Var({'x': -2, 'y': -1}, -23))
 
+    def testRMul(self):
+        self.assertEqual(10 * self.var1, Var({'x': 20, 'y': 10}, 30))
+
+    def testIMul(self):
+        tmp = copy.deepcopy(self.var1)
+        tmp *= 10
+        self.assertEqual(tmp, Var({'x': 20, 'y': 10}, 30))
+
+    def testMul(self):
+        self.assertEqual(self.var2 * -5, Var({'x': -25, 'y': 0, 'z': -25}, -50))
+
 if __name__ == '__main__':
     unittest.main()

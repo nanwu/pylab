@@ -3,16 +3,16 @@ import copy
 from collections import namedtuple
 
 token_patterns = {
-    'NUM' : r'\d+',
+    'VAR': r'\d*[xXyY]', # put this befor NUM, otherwise 3x will be interpreted as NUM and VAR 
+    'NUM' : r'\d+(?!\w+)',
     'PLUS' : r'\+',
     'MINUS' : r'-',
     'TIME' : r'\*',
     'DIVIDE': r'/',
     'LPAREN': r'\(',
     'RPAREN': r'\)',
-    'WS' : r'\s+',
-    'VAR': r'\d*[XY]'
-}
+    'WS' : r'\s+'
+    }
 
 token_pattern_all = '|'.join([r'(?P<{}>{})'.format(t, p) for t, p in token_patterns.iteritems()])
 
@@ -21,17 +21,17 @@ Token = namedtuple('Token', 'type, val')
 
 class Var(object):
 
-    def __init__(self, var_to_factor={}, constant=0):
-        self.var_to_factor = var_to_factor
+    def __init__(self, varname_to_factor={}, constant=0):
+        self.varname_to_factor = varname_to_factor
         self.constant = constant
 
     def _add_delegate(self, to_add, new_var):
         if isinstance(to_add, int):
             new_var.constant += to_add
         elif isinstance(to_add, Var):
-            for var_to_add, factor_to_add in to_add.var_to_factor.iteritems():
-                new_var.var_to_factor[var_to_add] = factor_to_add + \
-                                                    new_var.var_to_factor.get(var_to_add, 0)
+            for var_to_add, factor_to_add in to_add.varname_to_factor.iteritems():
+                new_var.varname_to_factor[var_to_add] = factor_to_add + \
+                                                    new_var.varname_to_factor.get(var_to_add, 0)
 
             new_var.constant += to_add.constant
         else:
@@ -50,23 +50,11 @@ class Var(object):
 
     def __neg__(self):
         new_var= copy.deepcopy(self)
-        for var in new_var.var_to_factor.keys():
-            new_var.var_to_factor[var] = -new_var.var_to_factor[var]
+        for var in new_var.varname_to_factor.keys():
+            new_var.varname_to_factor[var] = -new_var.varname_to_factor[var]
         new_var.constant = -new_var.constant
         return new_var
            
-    def _sub_delegate(self, to_sub, new_var):
-        if isinstance(to_sub, int):
-            new_var.constant -= to_sub
-        elif isinstance(to_sub, Var):
-            for var_to_sub, factor_to_sub in to_sub.var_to_factor.iteritems():
-                new_var.var_to_factor[var_to_sub] = new_var.var_to_factor.get(var_to_sub, 0) - factor_to_sub
-            new_var.constant -= to_sub.constant
-        else:
-            raise TypeError('can not substract from Var object.')
-
-        return new_var
-
     def __rsub__(self, to_sub):
         return self._add_delegate(to_sub, -self) 
 
@@ -76,11 +64,29 @@ class Var(object):
     def __sub__(self, to_sub):
         return self._add_delegate(-to_sub, copy.deepcopy(self))
 
+    def _mul_delegate(self, multiplier, new_var):
+        if isinstance(multiplier, int):
+            for var in new_var.varname_to_factor.keys():
+                new_var.varname_to_factor[var] = multiplier * new_var.varname_to_factor[var]
+            new_var.constant *= multiplier
+            return new_var
+        else:
+            raise TypeError('can not multiple with Var object.')
+            
+    def __mul__(self, multiplier):
+        return self._mul_delegate(multiplier, copy.deepcopy(self))
+
+    def __imul__(self, multiplier):
+        return self._mul_delegate(multiplier, self)
+
+    def __rmul__(self, multiplier):
+        return self._mul_delegate(multiplier, copy.deepcopy(self))
+
     def __eq__(self, another_var):
-        return self.constant == another_var.constant and self.var_to_factor == another_var.var_to_factor
+        return self.constant == another_var.constant and self.varname_to_factor == another_var.varname_to_factor
     
     def __repr__(self):
-        return repr(self.var_to_factor) + ', constant: ' + str(self.constant)
+        return repr(self.varname_to_factor) + ', constant: ' + str(self.constant)
 
 def tokenizer(expr):
     for m in re.finditer(token_regex, expr):
@@ -113,20 +119,24 @@ class Parser(object):
         term = self._parse_term() 
 
         while self._accept('PLUS') or self._accept('MINUS'):
-            if self.cur_token.type == 'PLUS':
-                return term + self._parse_expr()
-            elif self.cur_token.type == 'MINUS':
-                return term - self._parse_expr()
+            op_type = self.cur_token.type
+            next_term = self._parse_term()
+            if op_type == 'PLUS':
+                term += next_term
+            elif op_type == 'MINUS':
+                term -= next_term
         
         return term
                 
     def _parse_term(self):
         factor = self._parse_factor()
         while self._accept('TIME') or self._accept('DIVIDE'):
-            if self.cur_token.type == 'TIME':
-                return factor * self._parse_factor()
-            elif self.cur_token.type == 'DIVIDE':
-                return factor / self._parse_factor()
+            op_type = self.cur_token.type
+            next_factor = self._parse_factor()
+            if op_type == 'TIME':
+                factor *= next_factor
+            elif op_type == 'DIVIDE':
+                factor /= next_factor
 
         return factor
 
@@ -142,11 +152,19 @@ class Parser(object):
             sign = -1 if self.cur_token.type == 'MINUS' else 1
             while self._accept('PLUS') or self._accept('MINUS'):
                 sign *= -1 if self.cur_token.type == 'MINUS' else 1 
-            return sign * self._parse_expr()
-        
-        raise SyntaxError
+            return sign * self._parse_factor()
+        elif self._accept('VAR'):
+            try:
+                factor = int(self.cur_token.val[:-1])
+            except ValueError:
+                factor = 1
+            varname = self.cur_token.val[-1]
+            return Var({varname: factor})
+        else:
+            raise SyntaxError
 
 
-#parser = Parser('-(1 + 2) * -3')
-#print parser.parse()
-
+if __name__ == '__main__':
+    left, right = '5x - 3*(2y +6) +8 = 2x + y +1'.split('=')
+    one_sided = Parser(left).parse() - Parser(right).parse()
+    print one_sided
