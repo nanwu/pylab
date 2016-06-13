@@ -73,10 +73,15 @@ class Parser(object):
             return expr
         elif self._accept('NUM'):
             return int(self.cur_token.val)
+        elif self._accept('PLUS') or self._accept('MINUS'):
+            sign = -1 if self.cur_token.type == 'MINUS' else 1
+            while self._accept('PLUS') or self._accept('MINUS'):
+                sign *= -1 if self.cur_token.type == 'MINUS' else 1 
+            return sign * self._parse_expr()
         
         raise SyntaxError
 
 
-parser = Parser('(1 + 2) / 3 - 5 ')
+parser = Parser('-(1 + 2) * -3')
 print parser.parse()
 
