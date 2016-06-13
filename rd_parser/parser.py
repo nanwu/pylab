@@ -3,8 +3,8 @@ import copy
 from collections import namedtuple
 
 token_patterns = {
-    'VAR': r'\d*[xXyY]', # put this befor NUM, otherwise 3x will be interpreted as NUM and VAR 
-    'NUM' : r'\d+(?!\w+)',
+    'VAR': r'\d*[xXyY]',
+    'NUM' : r'\d+(?!\w+)', # without look-ahead assertion, 3x will be interpreted as NUM and VAR
     'PLUS' : r'\+',
     'MINUS' : r'-',
     'TIME' : r'\*',
