@@ -4,7 +4,7 @@ from collections import namedtuple
 
 token_patterns = {
     'VAR': r'\d*[xXyY]',
-    'NUM' : r'\d+(?!\w+)', # without look-ahead assertion, 3x will be interpreted as NUM and VAR
+    'NUM' : r'\d+(?!\w+)', # without look-ahead assertion, 3x will be interpreted as NUM(3) and VAR(x)
     'PLUS' : r'\+',
     'MINUS' : r'-',
     'TIME' : r'\*',
